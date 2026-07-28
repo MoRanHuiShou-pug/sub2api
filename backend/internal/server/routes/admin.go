@@ -119,6 +119,9 @@ func RegisterAdminRoutes(
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+
+		// 上游管理（Sub2API / NewAPI session）
+		registerUpstreamSessionRoutes(admin, h)
 	}
 }
 
@@ -145,6 +148,18 @@ func registerAuditLogRoutes(admin *gin.RouterGroup, h *handler.Handlers, _ middl
 		auditLogs.GET("/:id", h.Admin.AuditLog.Get)
 		// 清空需现场 TOTP 校验（在 handler 内强制），不复用 step-up sudo 窗口
 		auditLogs.POST("/clear", h.Admin.AuditLog.Clear)
+	}
+}
+
+func registerUpstreamSessionRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	upstreams := admin.Group("/upstreams")
+	{
+		upstreams.GET("", h.Admin.UpstreamSession.List)
+		upstreams.POST("", h.Admin.UpstreamSession.Create)
+		upstreams.GET("/:id", h.Admin.UpstreamSession.Get)
+		upstreams.PUT("/:id", h.Admin.UpstreamSession.Update)
+		upstreams.DELETE("/:id", h.Admin.UpstreamSession.Delete)
+		upstreams.POST("/:id/sync", h.Admin.UpstreamSession.Sync)
 	}
 }
 

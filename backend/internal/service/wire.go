@@ -788,6 +788,8 @@ var ProviderSet = wire.NewSet(
 	ProvideChannelMonitorRunner,
 	NewChannelMonitorRequestTemplateService,
 	ProvideUserPlatformQuotaUsageFlusher,
+	NewUpstreamSessionService,
+	ProvideUpstreamSyncWorker,
 )
 
 // ProvideUserPlatformQuotaUsageFlusher 创建并启动 UserPlatformQuotaUsageFlusher。
@@ -795,6 +797,13 @@ func ProvideUserPlatformQuotaUsageFlusher(cfg *config.Config, cache BillingCache
 	svc := NewUserPlatformQuotaUsageFlusher(cfg, cache, quotaRepo, tw)
 	svc.Start()
 	return svc
+}
+
+// ProvideUpstreamSyncWorker 创建并启动 UpstreamSyncWorker（5 分钟同步间隔）
+func ProvideUpstreamSyncWorker(upstreamSvc *UpstreamSessionService) *UpstreamSyncWorker {
+	worker := NewUpstreamSyncWorker(upstreamSvc, 5*time.Minute)
+	worker.Start()
+	return worker
 }
 
 // ProvidePaymentConfigService wraps NewPaymentConfigService to accept the named
