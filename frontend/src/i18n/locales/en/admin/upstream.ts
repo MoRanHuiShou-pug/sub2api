@@ -37,7 +37,7 @@ export default {
     placeholders: {
       name: 'e.g. My Sub2API',
       baseUrl: 'https://example.com',
-      email: 'user@example.com',
+      email: "user{'@'}example.com",
       password: '••••••••',
     },
     dialog: {

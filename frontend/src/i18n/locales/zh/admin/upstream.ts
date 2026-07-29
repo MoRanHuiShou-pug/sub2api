@@ -37,7 +37,7 @@ export default {
     placeholders: {
       name: '例如：我的 Sub2API',
       baseUrl: 'https://example.com',
-      email: 'user@example.com',
+      email: "user{'@'}example.com",
       password: '••••••••',
     },
     dialog: {
