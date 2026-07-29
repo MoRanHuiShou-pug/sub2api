@@ -13,6 +13,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
+// upstreamUserAgent 是发往上游实例的 HTTP 请求统一使用的 User-Agent。
+// 上游站点常经 Cloudflare/WAF/Bot 防护，Go 默认的 "Go-http-client/1.1" 会被拦截并
+// 返回 403 HTML 页面（body 以 '<' 开头），导致 JSON 解码报 "invalid character '<'"。
+// 使用浏览器式 UA 可绕过该拦截。
+const upstreamUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
 // UpstreamCredentials 存储在 Account.Credentials JSONB 中
 type UpstreamCredentials struct {
 	BaseURL  string `json:"base_url"`
@@ -71,6 +77,8 @@ func (s *UpstreamSessionService) doJSON(ctx context.Context, method, url string,
 		return 0, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", upstreamUserAgent)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -79,6 +87,16 @@ func (s *UpstreamSessionService) doJSON(ctx context.Context, method, url string,
 		return 0, fmt.Errorf("http: %w", err)
 	}
 	defer resp.Body.Close()
+
+	// 上游经 WAF/反代拦截时会返回 HTML（而非 JSON）。若响应体不是 JSON，
+	// 直接 decode 会得到 "invalid character '<'" 这类无意义报错。
+	// 这里先按 Content-Type 判定：非 JSON 响应读取前缀，报出清晰的错误。
+	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "json") {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+		return resp.StatusCode, fmt.Errorf("upstream returned non-JSON (http %d, content-type %q): %s",
+			resp.StatusCode, ct, strings.TrimSpace(string(snippet)))
+	}
+
 	if out != nil {
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			return resp.StatusCode, fmt.Errorf("decode: %w", err)
@@ -225,11 +243,19 @@ func (s *UpstreamSessionService) LoginNewapi(ctx context.Context, baseURL, usern
 		return "", 0, fmt.Errorf("newapi login build: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", upstreamUserAgent)
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return "", 0, fmt.Errorf("newapi login: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "json") {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+		return "", 0, fmt.Errorf("newapi login returned non-JSON (http %d): %s",
+			resp.StatusCode, strings.TrimSpace(string(snippet)))
+	}
 
 	var loginResp newapiLoginResp
 	if err := json.NewDecoder(resp.Body).Decode(&loginResp); err != nil {
