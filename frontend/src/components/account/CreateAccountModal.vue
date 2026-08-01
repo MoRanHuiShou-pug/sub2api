@@ -301,7 +301,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <Icon name="arrow-up-right" size="sm" />
+              <Icon name="arrowRight" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
@@ -393,7 +393,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <Icon name="arrow-up-right" size="sm" />
+              <Icon name="arrowRight" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
@@ -479,7 +479,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <Icon name="arrow-up-right" size="sm" />
+              <Icon name="arrowRight" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
@@ -625,7 +625,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <Icon name="arrow-up-right" size="sm" />
+              <Icon name="arrowRight" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
@@ -972,7 +972,7 @@
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
-              <Icon name="arrow-up-right" size="sm" />
+              <Icon name="arrowRight" size="sm" />
             </div>
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
