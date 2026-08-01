@@ -230,6 +230,9 @@ func upstreamGroupsToRaw(groups []service.UpstreamGroup) []map[string]interface{
 			"name":            g.Name,
 			"rate_multiplier": g.RateMultiplier,
 		}
+		if g.ID != 0 {
+			m["id"] = g.ID
+		}
 		if g.Platform != "" {
 			m["platform"] = g.Platform
 		}
