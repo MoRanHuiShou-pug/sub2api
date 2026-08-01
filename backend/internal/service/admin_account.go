@@ -573,6 +573,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 			input.Extra = make(map[string]any)
 		}
 		input.Extra["upstream_id"] = upstream.ID
+		// Store as apikey so all downstream logic (test, forward, billing probe) works transparently.
+		// upstream_id in Extra is the source-of-truth marker.
+		input.Type = AccountTypeAPIKey
 	}
 
 	account, err := buildAccountForCreate(input, accountExtra)
