@@ -19,6 +19,7 @@ const upstreamUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 
 // UpstreamGroup 代表一个可用分组及其倍率
 type UpstreamGroup struct {
+	ID             int64   `json:"id,omitempty"` // sub2api 平台的数字 ID，NewAPI 无此字段
 	Name           string  `json:"name"`
 	Platform       string  `json:"platform,omitempty"`
 	RateMultiplier float64 `json:"rate_multiplier"`
@@ -159,6 +160,7 @@ func (s *UpstreamSessionService) GetGroupsSub2api(ctx context.Context, baseURL, 
 	groups := make([]UpstreamGroup, 0, len(resp.Data))
 	for _, g := range resp.Data {
 		groups = append(groups, UpstreamGroup{
+			ID:             g.ID,
 			Name:           g.Name,
 			Platform:       g.Platform,
 			RateMultiplier: g.RateMultiplier,

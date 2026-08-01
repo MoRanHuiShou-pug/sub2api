@@ -560,7 +560,18 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		if upstream.Health == "error" {
 			return nil, fmt.Errorf("upstream %d is in error state, sync first", upstream.ID)
 		}
-		key, err := s.upstreamSvc.CreateKey(ctx, upstream, input.Name, nil, input.GroupName)
+		// For sub2api upstreams the key API takes a numeric group_id; look it up from the cached groups list.
+		var groupID *int64
+		if input.GroupName != "" {
+			for _, g := range upstream.Groups {
+				if g.Name == input.GroupName {
+					id := g.ID
+					groupID = &id
+					break
+				}
+			}
+		}
+		key, err := s.upstreamSvc.CreateKey(ctx, upstream, input.Name, groupID, input.GroupName)
 		if err != nil {
 			return nil, fmt.Errorf("create upstream key: %w", err)
 		}
