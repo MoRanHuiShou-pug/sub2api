@@ -903,7 +903,16 @@ export default {
         apiKey: '上游 API Key',
         apiKeyHint: '上游服务的 API Key',
         pleaseEnterBaseUrl: '请输入上游 Base URL',
-        pleaseEnterApiKey: '请输入上游 API Key'
+        pleaseEnterApiKey: '请输入上游 API Key',
+        upstreamId: '上游实例',
+        upstreamIdHint: '选择要绑定此账号的上游 Sub2API/NewAPI 实例',
+        upstreamIdPlaceholder: '— 选择上游实例 —',
+        groupName: '分组名称',
+        groupNameHint: '选择上游实例中的分组（留空使用默认）',
+        groupNamePlaceholder: '— 选择分组 —',
+        autoPriority: '自动优先级',
+        autoPriorityHint: '自动继承上游分组倍率对应的优先级',
+        pleaseSelectUpstream: '请选择上游实例'
       },
       // OAuth flow
       oauth: {

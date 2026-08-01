@@ -848,7 +848,16 @@ export default {
         apiKey: 'Upstream API Key',
         apiKeyHint: 'API Key for the upstream service',
         pleaseEnterBaseUrl: 'Please enter upstream Base URL',
-        pleaseEnterApiKey: 'Please enter upstream API Key'
+        pleaseEnterApiKey: 'Please enter upstream API Key',
+        upstreamId: 'Upstream Instance',
+        upstreamIdHint: 'Select the upstream Sub2API/NewAPI instance to bind this account to',
+        upstreamIdPlaceholder: '— Select upstream —',
+        groupName: 'Group Name',
+        groupNameHint: 'Select the group within the upstream instance (leave blank for default)',
+        groupNamePlaceholder: '— Select group —',
+        autoPriority: 'Auto Priority',
+        autoPriorityHint: 'Automatically inherit priority from the upstream group rate multiplier',
+        pleaseSelectUpstream: 'Please select an upstream instance'
       },
       // OAuth flow
       oauth: {

@@ -551,6 +551,30 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		return nil, err
 	}
 
+	// 上游账号：通过上游 session 创建 API key，并将 key + base_url 写入 Credentials
+	if input.Type == AccountTypeUpstream && input.UpstreamID != nil {
+		upstream, err := s.upstreamRepo.GetByID(ctx, *input.UpstreamID)
+		if err != nil {
+			return nil, fmt.Errorf("get upstream: %w", err)
+		}
+		if upstream.Health == "error" {
+			return nil, fmt.Errorf("upstream %d is in error state, sync first", upstream.ID)
+		}
+		key, err := s.upstreamSvc.CreateKey(ctx, upstream, input.Name, nil, input.GroupName)
+		if err != nil {
+			return nil, fmt.Errorf("create upstream key: %w", err)
+		}
+		if input.Credentials == nil {
+			input.Credentials = make(map[string]any)
+		}
+		input.Credentials["api_key"] = key
+		input.Credentials["base_url"] = upstream.BaseURL
+		if input.Extra == nil {
+			input.Extra = make(map[string]any)
+		}
+		input.Extra["upstream_id"] = upstream.ID
+	}
+
 	account, err := buildAccountForCreate(input, accountExtra)
 	if err != nil {
 		return nil, err

@@ -128,6 +128,10 @@ type CreateAccountRequest struct {
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	// Upstream relay account: the upstream instance to create the key on
+	UpstreamID *int64 `json:"upstream_id"`
+	// Upstream relay account: the group name to use when creating the key
+	GroupName string `json:"group_name"`
 }
 
 // UpdateAccountRequest represents update account request
@@ -861,6 +865,8 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			AutoPauseOnExpired:    req.AutoPauseOnExpired,
 			ProbeEnabled:          req.ProbeEnabled,
 			SkipMixedChannelCheck: skipCheck,
+			UpstreamID:            req.UpstreamID,
+			GroupName:             req.GroupName,
 		})
 		if execErr != nil {
 			return nil, execErr

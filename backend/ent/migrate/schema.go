@@ -1573,6 +1573,51 @@ var (
 		Columns:    TLSFingerprintProfilesColumns,
 		PrimaryKey: []*schema.Column{TLSFingerprintProfilesColumns[0]},
 	}
+	// UpstreamsColumns holds the columns for the "upstreams" table.
+	UpstreamsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "platform", Type: field.TypeString, Size: 20},
+		{Name: "base_url", Type: field.TypeString, Size: 500},
+		{Name: "email", Type: field.TypeString, Size: 200},
+		{Name: "password", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "access_token", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "refresh_token", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "session_cookie", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "upstream_user_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "groups", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "balance", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,6)"}},
+		{Name: "health", Type: field.TypeString, Size: 20, Default: "pending"},
+		{Name: "health_msg", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "last_synced_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// UpstreamsTable holds the schema information for the "upstreams" table.
+	UpstreamsTable = &schema.Table{
+		Name:       "upstreams",
+		Columns:    UpstreamsColumns,
+		PrimaryKey: []*schema.Column{UpstreamsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "upstream_platform",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamsColumns[5]},
+			},
+			{
+				Name:    "upstream_health",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamsColumns[16]},
+			},
+			{
+				Name:    "upstream_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamsColumns[3]},
+			},
+		},
+	}
 	// UsageCleanupTasksColumns holds the columns for the "usage_cleanup_tasks" table.
 	UsageCleanupTasksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2094,6 +2139,7 @@ var (
 		SettingsTable,
 		SubscriptionPlansTable,
 		TLSFingerprintProfilesTable,
+		UpstreamsTable,
 		UsageCleanupTasksTable,
 		UsageLogsTable,
 		UsersTable,
@@ -2221,6 +2267,9 @@ func init() {
 	}
 	TLSFingerprintProfilesTable.Annotation = &entsql.Annotation{
 		Table: "tls_fingerprint_profiles",
+	}
+	UpstreamsTable.Annotation = &entsql.Annotation{
+		Table: "upstreams",
 	}
 	UsageCleanupTasksTable.Annotation = &entsql.Annotation{
 		Table: "usage_cleanup_tasks",

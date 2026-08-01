@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // upstreamUserAgent 是发往上游实例的 HTTP 请求统一使用的 User-Agent。
@@ -18,30 +16,6 @@ import (
 // 返回 403 HTML 页面（body 以 '<' 开头），导致 JSON 解码报 "invalid character '<'"。
 // 使用浏览器式 UA 可绕过该拦截。
 const upstreamUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-
-// UpstreamCredentials 存储在 Account.Credentials JSONB 中
-type UpstreamCredentials struct {
-	BaseURL  string `json:"base_url"`
-	Email    string `json:"email"`
-	Password string `json:"password"` // 明文；如需加密可后续替换为 password_enc
-}
-
-// UpstreamSessionData 存储在 Account.Extra JSONB 中（自动同步结果）
-type UpstreamSessionData struct {
-	// Sub2API
-	AccessToken  string `json:"access_token,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	ExpiresAt    string `json:"expires_at,omitempty"`
-	// NewAPI
-	SessionCookie string `json:"session_cookie,omitempty"`
-	UserID        int64  `json:"user_id,omitempty"`
-	// 公共
-	Balance      float64         `json:"balance"`
-	Groups       []UpstreamGroup `json:"groups"`
-	Health       string          `json:"health"`        // "ok" | "error" | "pending"
-	HealthMsg    string          `json:"health_msg,omitempty"`
-	LastSyncedAt string          `json:"last_synced_at,omitempty"`
-}
 
 // UpstreamGroup 代表一个可用分组及其倍率
 type UpstreamGroup struct {
@@ -51,16 +25,16 @@ type UpstreamGroup struct {
 	Description    string  `json:"description,omitempty"`
 }
 
-// UpstreamSessionService 处理 Sub2API / NewAPI 上游的登录、token 刷新、数据同步
+// UpstreamSessionService 处理 Sub2API / NewAPI 上游的登录、token 刷新、数据同步及 key 创建。
 type UpstreamSessionService struct {
-	accountRepo AccountRepository
-	httpClient  *http.Client
+	upstreamRepo UpstreamRepository
+	httpClient   *http.Client
 }
 
-// NewUpstreamSessionService 创建服务实例
-func NewUpstreamSessionService(accountRepo AccountRepository) *UpstreamSessionService {
+// NewUpstreamSessionService 创建服务实例。
+func NewUpstreamSessionService(upstreamRepo UpstreamRepository) *UpstreamSessionService {
 	return &UpstreamSessionService{
-		accountRepo: accountRepo,
+		upstreamRepo: upstreamRepo,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -88,9 +62,7 @@ func (s *UpstreamSessionService) doJSON(ctx context.Context, method, url string,
 	}
 	defer resp.Body.Close()
 
-	// 上游经 WAF/反代拦截时会返回 HTML（而非 JSON）。若响应体不是 JSON，
-	// 直接 decode 会得到 "invalid character '<'" 这类无意义报错。
-	// 这里先按 Content-Type 判定：非 JSON 响应读取前缀，报出清晰的错误。
+	// 上游经 WAF/反代拦截时会返回 HTML（而非 JSON）。
 	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "json") {
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
 		return resp.StatusCode, fmt.Errorf("upstream returned non-JSON (http %d, content-type %q): %s",
@@ -119,7 +91,7 @@ type sub2apiLoginResp struct {
 	} `json:"data"`
 }
 
-// LoginSub2api 使用 email/password 登录 Sub2API，返回 access_token, refresh_token, expires_at
+// LoginSub2api 使用 email/password 登录 Sub2API，返回 access_token, refresh_token, expires_at。
 func (s *UpstreamSessionService) LoginSub2api(ctx context.Context, baseURL, email, password string) (accessToken, refreshToken string, expiresAt time.Time, err error) {
 	payload := fmt.Sprintf(`{"email":%q,"password":%q}`, email, password)
 	var resp sub2apiLoginResp
@@ -144,7 +116,7 @@ type sub2apiRefreshResp struct {
 	} `json:"data"`
 }
 
-// RefreshSub2api 使用 refresh_token 续签 access_token
+// RefreshSub2api 使用 refresh_token 续签 access_token。
 func (s *UpstreamSessionService) RefreshSub2api(ctx context.Context, baseURL, refreshToken string) (accessToken string, expiresAt time.Time, err error) {
 	payload := fmt.Sprintf(`{"refresh_token":%q}`, refreshToken)
 	var resp sub2apiRefreshResp
@@ -172,7 +144,7 @@ type sub2apiGroupsResp struct {
 	} `json:"data"`
 }
 
-// GetGroupsSub2api 拉取 Sub2API 可用分组列表
+// GetGroupsSub2api 拉取 Sub2API 可用分组列表。
 func (s *UpstreamSessionService) GetGroupsSub2api(ctx context.Context, baseURL, accessToken string) ([]UpstreamGroup, error) {
 	var resp sub2apiGroupsResp
 	headers := map[string]string{"Authorization": "Bearer " + accessToken}
@@ -204,7 +176,7 @@ type sub2apiMeResp struct {
 	} `json:"data"`
 }
 
-// GetBalanceSub2api 获取 Sub2API 账号余额
+// GetBalanceSub2api 获取 Sub2API 账号余额。
 func (s *UpstreamSessionService) GetBalanceSub2api(ctx context.Context, baseURL, accessToken string) (float64, error) {
 	var resp sub2apiMeResp
 	headers := map[string]string{"Authorization": "Bearer " + accessToken}
@@ -217,6 +189,39 @@ func (s *UpstreamSessionService) GetBalanceSub2api(ctx context.Context, baseURL,
 		return 0, fmt.Errorf("sub2api balance failed (http %d): %s", statusCode, resp.Message)
 	}
 	return resp.Data.Balance, nil
+}
+
+type sub2apiCreateKeyResp struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Key string `json:"key"`
+	} `json:"data"`
+}
+
+// CreateAPIKeySub2api 在 Sub2API 上创建 API key，返回 key 字符串。
+// groupID 传 nil 时不指定分组。
+func (s *UpstreamSessionService) CreateAPIKeySub2api(ctx context.Context, baseURL, accessToken, keyName string, groupID *int64) (string, error) {
+	var bodyStr string
+	if groupID != nil {
+		bodyStr = fmt.Sprintf(`{"name":%q,"group_id":%d}`, keyName, *groupID)
+	} else {
+		bodyStr = fmt.Sprintf(`{"name":%q}`, keyName)
+	}
+	headers := map[string]string{"Authorization": "Bearer " + accessToken}
+	var resp sub2apiCreateKeyResp
+	statusCode, err := s.doJSON(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/api/v1/keys",
+		strings.NewReader(bodyStr), headers, &resp)
+	if err != nil {
+		return "", fmt.Errorf("sub2api create key: %w", err)
+	}
+	if statusCode != http.StatusOK || resp.Code != 0 {
+		return "", fmt.Errorf("sub2api create key failed (http %d): %s", statusCode, resp.Message)
+	}
+	if resp.Data.Key == "" {
+		return "", fmt.Errorf("sub2api create key: empty key in response")
+	}
+	return resp.Data.Key, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +238,7 @@ type newapiLoginResp struct {
 	} `json:"data"`
 }
 
-// LoginNewapi 使用 username/password 登录 NewAPI，返回 session cookie 值 + user_id
+// LoginNewapi 使用 username/password 登录 NewAPI，返回 session cookie 值 + user_id。
 func (s *UpstreamSessionService) LoginNewapi(ctx context.Context, baseURL, username, password string) (sessionCookie string, userID int64, err error) {
 	payload := fmt.Sprintf(`{"username":%q,"password":%q}`, username, password)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
@@ -265,7 +270,6 @@ func (s *UpstreamSessionService) LoginNewapi(ctx context.Context, baseURL, usern
 		return "", 0, fmt.Errorf("newapi login failed: %s", loginResp.Message)
 	}
 
-	// 从 Set-Cookie 头提取 session 值
 	for _, c := range resp.Cookies() {
 		if c.Name == "session" {
 			return c.Value, loginResp.Data.ID, nil
@@ -283,7 +287,7 @@ type newapiGroupInfo struct {
 	Desc  string  `json:"desc"`
 }
 
-// GetGroupsNewapi 拉取 NewAPI 可用分组列表（需要 session cookie + user_id header）
+// GetGroupsNewapi 拉取 NewAPI 可用分组列表。
 func (s *UpstreamSessionService) GetGroupsNewapi(ctx context.Context, baseURL, sessionCookie string, userID int64) ([]UpstreamGroup, error) {
 	headers := map[string]string{
 		"Cookie":       "session=" + sessionCookie,
@@ -312,11 +316,11 @@ func (s *UpstreamSessionService) GetGroupsNewapi(ctx context.Context, baseURL, s
 type newapiSelfResp struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Quota float64 `json:"quota"` // NewAPI internal quota units
+		Quota float64 `json:"quota"`
 	} `json:"data"`
 }
 
-// GetBalanceNewapi 获取 NewAPI 账号 quota（除以 500000 换算为 USD）
+// GetBalanceNewapi 获取 NewAPI 账号 quota（除以 500000 换算为 USD）。
 func (s *UpstreamSessionService) GetBalanceNewapi(ctx context.Context, baseURL, sessionCookie string, userID int64) (float64, error) {
 	headers := map[string]string{
 		"Cookie":       "session=" + sessionCookie,
@@ -331,267 +335,220 @@ func (s *UpstreamSessionService) GetBalanceNewapi(ctx context.Context, baseURL, 
 	if statusCode != http.StatusOK || !resp.Success {
 		return 0, fmt.Errorf("newapi balance failed (http %d)", statusCode)
 	}
-	// 换算：quota / 500000 ≈ USD
 	return resp.Data.Quota / 500000, nil
+}
+
+type newapiCreateTokenResp struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    struct {
+		Key string `json:"key"`
+	} `json:"data"`
+}
+
+// CreateAPIKeyNewapi 在 NewAPI 上创建 token（API key），返回 key 字符串。
+// groupName 传空字符串时不指定分组。
+func (s *UpstreamSessionService) CreateAPIKeyNewapi(ctx context.Context, baseURL, sessionCookie string, userID int64, keyName, groupName string) (string, error) {
+	var bodyStr string
+	if groupName != "" {
+		bodyStr = fmt.Sprintf(`{"name":%q,"group":%q}`, keyName, groupName)
+	} else {
+		bodyStr = fmt.Sprintf(`{"name":%q}`, keyName)
+	}
+	headers := map[string]string{
+		"Cookie":       "session=" + sessionCookie,
+		"New-Api-User": fmt.Sprintf("%d", userID),
+	}
+	var resp newapiCreateTokenResp
+	statusCode, err := s.doJSON(ctx, http.MethodPost, strings.TrimRight(baseURL, "/")+"/api/user/token",
+		strings.NewReader(bodyStr), headers, &resp)
+	if err != nil {
+		return "", fmt.Errorf("newapi create token: %w", err)
+	}
+	if statusCode != http.StatusOK || !resp.Success {
+		return "", fmt.Errorf("newapi create token failed (http %d): %s", statusCode, resp.Message)
+	}
+	if resp.Data.Key == "" {
+		return "", fmt.Errorf("newapi create token: empty key in response")
+	}
+	return resp.Data.Key, nil
+}
+
+// ---------------------------------------------------------------------------
+// CreateKey — 统一入口（按 platform 路由）
+// ---------------------------------------------------------------------------
+
+// CreateKey 向上游平台创建一个与账号同名的 API key 并返回。
+// groupID 用于 Sub2API（传 nil 表示不限定分组），groupName 用于 NewAPI。
+// 调用前上游必须已成功同步（即持有有效 access_token / session_cookie）。
+func (s *UpstreamSessionService) CreateKey(ctx context.Context, upstream *Upstream, keyName string, groupID *int64, groupName string) (string, error) {
+	switch upstream.Platform {
+	case "sub2api":
+		if upstream.AccessToken == nil || *upstream.AccessToken == "" {
+			return "", fmt.Errorf("sub2api upstream %d: no access token, sync first", upstream.ID)
+		}
+		return s.CreateAPIKeySub2api(ctx, upstream.BaseURL, *upstream.AccessToken, keyName, groupID)
+	case "newapi":
+		if upstream.SessionCookie == nil || *upstream.SessionCookie == "" {
+			return "", fmt.Errorf("newapi upstream %d: no session cookie, sync first", upstream.ID)
+		}
+		var uid int64
+		if upstream.UpstreamUserID != nil {
+			uid = *upstream.UpstreamUserID
+		}
+		return s.CreateAPIKeyNewapi(ctx, upstream.BaseURL, *upstream.SessionCookie, uid, keyName, groupName)
+	default:
+		return "", fmt.Errorf("unsupported platform for CreateKey: %s", upstream.Platform)
+	}
 }
 
 // ---------------------------------------------------------------------------
 // 统一同步接口
 // ---------------------------------------------------------------------------
 
-// SyncUpstream 同步指定账号的 session、分组倍率、余额
-// 自动处理 token 续签逻辑
-func (s *UpstreamSessionService) SyncUpstream(ctx context.Context, accountID int64) error {
-	account, err := s.accountRepo.GetByID(ctx, accountID)
+// SyncUpstream 同步指定上游的 session、分组倍率、余额，自动处理 token 续签逻辑。
+func (s *UpstreamSessionService) SyncUpstream(ctx context.Context, upstreamID int64) error {
+	u, err := s.upstreamRepo.GetByID(ctx, upstreamID)
 	if err != nil {
-		return fmt.Errorf("get account %d: %w", accountID, err)
-	}
-	if account.Type != domain.AccountTypeUpstreamSession {
-		return fmt.Errorf("account %d is not upstream_session type", accountID)
+		return fmt.Errorf("get upstream %d: %w", upstreamID, err)
 	}
 
-	// 解析 credentials
-	credsJSON, err := json.Marshal(account.Credentials)
-	if err != nil {
-		return fmt.Errorf("marshal credentials: %w", err)
-	}
-	var creds UpstreamCredentials
-	if err := json.Unmarshal(credsJSON, &creds); err != nil {
-		return fmt.Errorf("parse credentials: %w", err)
-	}
-
-	// 解析现有 extra（session data）
-	var sessData UpstreamSessionData
-	if account.Extra != nil {
-		extraJSON, _ := json.Marshal(account.Extra)
-		_ = json.Unmarshal(extraJSON, &sessData)
-	}
-
-	switch account.Platform {
-	case domain.PlatformSub2api:
-		return s.syncSub2api(ctx, account, &creds, &sessData)
-	case domain.PlatformNewapi:
-		return s.syncNewapi(ctx, account, &creds, &sessData)
+	switch u.Platform {
+	case "sub2api":
+		return s.syncSub2api(ctx, u)
+	case "newapi":
+		return s.syncNewapi(ctx, u)
 	default:
-		return fmt.Errorf("unsupported platform: %s", account.Platform)
+		return fmt.Errorf("unsupported platform: %s", u.Platform)
 	}
 }
 
-func (s *UpstreamSessionService) syncSub2api(ctx context.Context, account *Account, creds *UpstreamCredentials, sess *UpstreamSessionData) error {
+func (s *UpstreamSessionService) syncSub2api(ctx context.Context, u *Upstream) error {
 	now := time.Now()
 
 	// 判断是否需要刷新 token（剩余不足 5 分钟则刷新）
-	needRefresh := true
-	if sess.ExpiresAt != "" {
-		if exp, err := time.Parse(time.RFC3339, sess.ExpiresAt); err == nil {
-			needRefresh = exp.Before(now.Add(5 * time.Minute))
-		}
+	needRefresh := u.AccessToken == nil || *u.AccessToken == ""
+	if !needRefresh && u.ExpiresAt != nil {
+		needRefresh = u.ExpiresAt.Before(now.Add(5 * time.Minute))
 	}
-	if sess.AccessToken == "" {
-		needRefresh = true
+
+	var accessToken, refreshToken string
+	var expiresAt time.Time
+
+	if u.AccessToken != nil {
+		accessToken = *u.AccessToken
+	}
+	if u.RefreshToken != nil {
+		refreshToken = *u.RefreshToken
 	}
 
 	if needRefresh {
-		if sess.RefreshToken != "" {
-			// 尝试 refresh
-			newAccess, newExp, err := s.RefreshSub2api(ctx, creds.BaseURL, sess.RefreshToken)
+		if refreshToken != "" {
+			newAccess, newExp, err := s.RefreshSub2api(ctx, u.BaseURL, refreshToken)
 			if err != nil {
-				slog.Warn("[UpstreamSync] sub2api refresh failed, re-login", "account_id", account.ID, "err", err)
-				// fallback: re-login
-				a, r, exp, lerr := s.LoginSub2api(ctx, creds.BaseURL, creds.Email, creds.Password)
+				slog.Warn("[UpstreamSync] sub2api refresh failed, re-login", "upstream_id", u.ID, "err", err)
+				a, r, exp, lerr := s.LoginSub2api(ctx, u.BaseURL, u.Email, u.Password)
 				if lerr != nil {
-					return s.saveError(ctx, account, lerr)
+					return s.markError(ctx, u.ID, lerr)
 				}
-				sess.AccessToken, sess.RefreshToken, newExp = a, r, exp
+				accessToken, refreshToken, expiresAt = a, r, exp
 			} else {
-				sess.AccessToken = newAccess
-				sess.ExpiresAt = newExp.UTC().Format(time.RFC3339)
+				accessToken = newAccess
+				expiresAt = newExp
 			}
 		} else {
-			a, r, exp, err := s.LoginSub2api(ctx, creds.BaseURL, creds.Email, creds.Password)
+			a, r, exp, err := s.LoginSub2api(ctx, u.BaseURL, u.Email, u.Password)
 			if err != nil {
-				return s.saveError(ctx, account, err)
+				return s.markError(ctx, u.ID, err)
 			}
-			sess.AccessToken, sess.RefreshToken = a, r
-			sess.ExpiresAt = exp.UTC().Format(time.RFC3339)
+			accessToken, refreshToken, expiresAt = a, r, exp
+		}
+
+		// 持久化新 token
+		rt := refreshToken
+		exp := expiresAt
+		if err := s.upstreamRepo.SaveSession(ctx, u.ID, &accessToken, &rt, &exp, u.SessionCookie, u.UpstreamUserID); err != nil {
+			slog.Warn("[UpstreamSync] sub2api save session failed", "upstream_id", u.ID, "err", err)
 		}
 	}
 
 	// 拉取分组
-	groups, err := s.GetGroupsSub2api(ctx, creds.BaseURL, sess.AccessToken)
+	groups, err := s.GetGroupsSub2api(ctx, u.BaseURL, accessToken)
 	if err != nil {
-		slog.Warn("[UpstreamSync] sub2api get groups failed", "account_id", account.ID, "err", err)
-	} else {
-		sess.Groups = groups
+		slog.Warn("[UpstreamSync] sub2api get groups failed", "upstream_id", u.ID, "err", err)
 	}
 
 	// 拉取余额
-	balance, err := s.GetBalanceSub2api(ctx, creds.BaseURL, sess.AccessToken)
+	balance, err := s.GetBalanceSub2api(ctx, u.BaseURL, accessToken)
 	if err != nil {
-		slog.Warn("[UpstreamSync] sub2api get balance failed", "account_id", account.ID, "err", err)
-	} else {
-		sess.Balance = balance
+		slog.Warn("[UpstreamSync] sub2api get balance failed", "upstream_id", u.ID, "err", err)
 	}
 
-	sess.Health = "ok"
-	sess.HealthMsg = ""
-	sess.LastSyncedAt = now.UTC().Format(time.RFC3339)
-	return s.saveSession(ctx, account, sess)
+	if len(groups) > 0 || balance > 0 {
+		_ = s.upstreamRepo.UpdateGroupsAndBalance(ctx, u.ID, groups, balance)
+	}
+
+	lastSync := now
+	msg := (*string)(nil)
+	return s.upstreamRepo.SetHealth(ctx, u.ID, "ok", msg, &lastSync)
 }
 
-func (s *UpstreamSessionService) syncNewapi(ctx context.Context, account *Account, creds *UpstreamCredentials, sess *UpstreamSessionData) error {
+func (s *UpstreamSessionService) syncNewapi(ctx context.Context, u *Upstream) error {
 	now := time.Now()
 
-	// NewAPI 无独立 refresh；session 有效期约 30 天，但我们每次同步都重新验证
-	// 若 session cookie 为空或验证失败则重新登录
-	needLogin := sess.SessionCookie == ""
+	sessionCookie := ""
+	if u.SessionCookie != nil {
+		sessionCookie = *u.SessionCookie
+	}
+	var userID int64
+	if u.UpstreamUserID != nil {
+		userID = *u.UpstreamUserID
+	}
+
+	// 若 session 为空或验证失败则重新登录
+	needLogin := sessionCookie == ""
 	if !needLogin {
-		// 验证 session 是否仍有效（发一次 /api/user/groups）
-		_, err := s.GetGroupsNewapi(ctx, creds.BaseURL, sess.SessionCookie, sess.UserID)
-		if err != nil {
+		if _, err := s.GetGroupsNewapi(ctx, u.BaseURL, sessionCookie, userID); err != nil {
 			needLogin = true
 		}
 	}
 
 	if needLogin {
-		cookie, uid, err := s.LoginNewapi(ctx, creds.BaseURL, creds.Email, creds.Password)
+		cookie, uid, err := s.LoginNewapi(ctx, u.BaseURL, u.Email, u.Password)
 		if err != nil {
-			return s.saveError(ctx, account, err)
+			return s.markError(ctx, u.ID, err)
 		}
-		sess.SessionCookie = cookie
-		sess.UserID = uid
+		sessionCookie, userID = cookie, uid
+		if err := s.upstreamRepo.SaveSession(ctx, u.ID, nil, nil, nil, &sessionCookie, &userID); err != nil {
+			slog.Warn("[UpstreamSync] newapi save session failed", "upstream_id", u.ID, "err", err)
+		}
 	}
 
 	// 拉取分组
-	groups, err := s.GetGroupsNewapi(ctx, creds.BaseURL, sess.SessionCookie, sess.UserID)
+	groups, err := s.GetGroupsNewapi(ctx, u.BaseURL, sessionCookie, userID)
 	if err != nil {
-		slog.Warn("[UpstreamSync] newapi get groups failed", "account_id", account.ID, "err", err)
-	} else {
-		sess.Groups = groups
+		slog.Warn("[UpstreamSync] newapi get groups failed", "upstream_id", u.ID, "err", err)
 	}
 
 	// 拉取余额
-	balance, err := s.GetBalanceNewapi(ctx, creds.BaseURL, sess.SessionCookie, sess.UserID)
+	balance, err := s.GetBalanceNewapi(ctx, u.BaseURL, sessionCookie, userID)
 	if err != nil {
-		slog.Warn("[UpstreamSync] newapi get balance failed", "account_id", account.ID, "err", err)
-	} else {
-		sess.Balance = balance
+		slog.Warn("[UpstreamSync] newapi get balance failed", "upstream_id", u.ID, "err", err)
 	}
 
-	sess.Health = "ok"
-	sess.HealthMsg = ""
-	sess.LastSyncedAt = now.UTC().Format(time.RFC3339)
-	return s.saveSession(ctx, account, sess)
+	if len(groups) > 0 || balance > 0 {
+		_ = s.upstreamRepo.UpdateGroupsAndBalance(ctx, u.ID, groups, balance)
+	}
+
+	lastSync := now
+	msg := (*string)(nil)
+	return s.upstreamRepo.SetHealth(ctx, u.ID, "ok", msg, &lastSync)
 }
 
-func (s *UpstreamSessionService) saveSession(ctx context.Context, account *Account, sess *UpstreamSessionData) error {
-	b, _ := json.Marshal(sess)
-	var extra map[string]any
-	_ = json.Unmarshal(b, &extra)
-	account.Extra = extra
-	if err := s.accountRepo.Update(ctx, account); err != nil {
-		return fmt.Errorf("save session for account %d: %w", account.ID, err)
-	}
-	return nil
-}
-
-func (s *UpstreamSessionService) saveError(ctx context.Context, account *Account, syncErr error) error {
-	if account.Extra == nil {
-		account.Extra = map[string]any{}
-	}
-	account.Extra["health"] = "error"
-	account.Extra["health_msg"] = syncErr.Error()
-	account.Extra["last_synced_at"] = time.Now().UTC().Format(time.RFC3339)
-	_ = s.accountRepo.Update(ctx, account)
+// markError 将同步错误持久化到 upstream.health 字段并返回原始错误。
+func (s *UpstreamSessionService) markError(ctx context.Context, upstreamID int64, syncErr error) error {
+	msg := syncErr.Error()
+	now := time.Now()
+	_ = s.upstreamRepo.SetHealth(ctx, upstreamID, "error", &msg, &now)
 	return syncErr
-}
-
-// GetUpstreamAccount 获取单个上游账号
-func (s *UpstreamSessionService) GetUpstreamAccount(ctx context.Context, id int64) (*Account, error) {
-	return s.accountRepo.GetByID(ctx, id)
-}
-
-// UpdateUpstreamAccount 更新上游账号配置（仅更新非空字段）
-func (s *UpstreamSessionService) UpdateUpstreamAccount(ctx context.Context, id int64, name, baseURL, email, password, status string) (*Account, error) {
-	account, err := s.accountRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if name != "" {
-		account.Name = name
-	}
-	if status != "" {
-		account.Status = status
-	}
-	if account.Credentials == nil {
-		account.Credentials = map[string]any{}
-	}
-	if baseURL != "" {
-		account.Credentials["base_url"] = baseURL
-	}
-	if email != "" {
-		account.Credentials["email"] = email
-	}
-	if password != "" {
-		account.Credentials["password"] = password
-		// 密码更新后清空 session，下次同步会重新登录
-		account.Extra = map[string]any{"health": "pending"}
-	}
-	if err := s.accountRepo.Update(ctx, account); err != nil {
-		return nil, fmt.Errorf("update upstream account: %w", err)
-	}
-	return account, nil
-}
-
-// DeleteUpstreamAccount 删除上游账号
-func (s *UpstreamSessionService) DeleteUpstreamAccount(ctx context.Context, id int64) error {
-	return s.accountRepo.Delete(ctx, id)
-}
-
-// MarkSyncing 将账号 health 标记为 syncing（手动触发同步前调用）
-func (s *UpstreamSessionService) MarkSyncing(ctx context.Context, id int64) error {
-	account, err := s.accountRepo.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-	if account.Extra == nil {
-		account.Extra = map[string]any{}
-	}
-	account.Extra["health"] = "syncing"
-	return s.accountRepo.Update(ctx, account)
-}
-func (s *UpstreamSessionService) ListUpstreamAccounts(ctx context.Context) ([]Account, error) {
-	return s.accountRepo.ListAllWithFilters(ctx, "", domain.AccountTypeUpstreamSession, "", "", AccountListGroupUngrouped, "")
-}
-
-// CreateUpstreamAccount 创建上游账号并立即同步一次
-func (s *UpstreamSessionService) CreateUpstreamAccount(ctx context.Context, platform, name, baseURL, email, password string) (*Account, error) {
-	creds := map[string]any{
-		"base_url": baseURL,
-		"email":    email,
-		"password": password,
-	}
-	account := &Account{
-		Name:     name,
-		Platform: platform,
-		Type:     domain.AccountTypeUpstreamSession,
-		Credentials: creds,
-		Extra: map[string]any{
-			"health": "pending",
-		},
-		Priority: 0,
-		Status:   domain.StatusActive,
-	}
-	if err := s.accountRepo.Create(ctx, account); err != nil {
-		return nil, fmt.Errorf("create upstream account: %w", err)
-	}
-	// 立即触发同步（不阻塞返回；若失败只记录 extra.health=error）
-	go func() {
-		syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := s.SyncUpstream(syncCtx, account.ID); err != nil {
-			slog.Warn("[UpstreamSync] initial sync failed", "account_id", account.ID, "err", err)
-		}
-	}()
-	return account, nil
 }

@@ -688,6 +688,45 @@
           />
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
+
+        <!-- Upstream instance binding -->
+        <div>
+          <label class="input-label">{{ t('admin.accounts.upstream.upstreamId') }}</label>
+          <select v-model="editUpstreamId" class="input">
+            <option value="">{{ t('admin.accounts.upstream.upstreamIdPlaceholder') }}</option>
+            <option v-for="u in editUpstreamsList" :key="u.id" :value="u.id">
+              {{ u.name }} ({{ u.platform }})
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.upstream.upstreamIdHint') }}</p>
+        </div>
+
+        <!-- Group name (derived from selected upstream) -->
+        <div>
+          <label class="input-label">{{ t('admin.accounts.upstream.groupName') }}</label>
+          <select v-model="editGroupName" class="input" :disabled="!editUpstreamId">
+            <option value="">{{ t('admin.accounts.upstream.groupNamePlaceholder') }}</option>
+            <option v-for="g in editSelectedUpstreamGroups" :key="g.name" :value="g.name">
+              {{ g.name }}
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.upstream.groupNameHint') }}</p>
+        </div>
+
+        <!-- Auto priority -->
+        <div>
+          <label class="flex cursor-pointer items-center gap-2">
+            <input
+              v-model="editAutoPriority"
+              type="checkbox"
+              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+            />
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.accounts.upstream.autoPriority') }}
+            </span>
+          </label>
+          <p class="input-hint mt-1">{{ t('admin.accounts.upstream.autoPriorityHint') }}</p>
+        </div>
       </div>
 
       <!-- Vertex Service Account -->
@@ -2596,6 +2635,8 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
+import upstreamAPI from '@/api/admin/upstream'
+import type { Upstream as UpstreamInstance } from '@/api/admin/upstream'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
@@ -2710,6 +2751,16 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+// Upstream instance binding
+const editUpstreamId = ref('')
+const editGroupName = ref('')
+const editAutoPriority = ref(false)
+const editUpstreamsList = ref<UpstreamInstance[]>([])
+const editSelectedUpstreamGroups = computed(() => {
+  if (!editUpstreamId.value) return []
+  const upstream = editUpstreamsList.value.find(u => u.id === editUpstreamId.value)
+  return upstream?.groups ?? []
+})
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -3519,6 +3570,13 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   } else if (newAccount.type === 'upstream' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
     editBaseUrl.value = (credentials.base_url as string) || ''
+    editUpstreamId.value = (credentials.upstream_id as string) || ''
+    editGroupName.value = (credentials.group_name as string) || ''
+    editAutoPriority.value = credentials.auto_priority === true
+    // Fetch upstreams list so the selects are populated
+    if (editUpstreamsList.value.length === 0) {
+      upstreamAPI.list().then(list => { editUpstreamsList.value = list }).catch(() => {})
+    }
   } else if ((newAccount.platform === 'gemini' || newAccount.platform === 'anthropic') && newAccount.type === 'service_account' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
     editVertexProjectId.value = (credentials.project_id as string) || ''
@@ -4151,6 +4209,19 @@ const handleSubmit = async () => {
       if (editApiKey.value.trim()) {
         newCredentials.api_key = editApiKey.value.trim()
       }
+
+      // Persist upstream binding fields
+      if (editUpstreamId.value.trim()) {
+        newCredentials.upstream_id = editUpstreamId.value.trim()
+      } else {
+        delete newCredentials.upstream_id
+      }
+      if (editGroupName.value.trim()) {
+        newCredentials.group_name = editGroupName.value.trim()
+      } else {
+        delete newCredentials.group_name
+      }
+      newCredentials.auto_priority = editAutoPriority.value
 
       // Add intercept warmup requests setting
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')

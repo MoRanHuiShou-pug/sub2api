@@ -1333,6 +1333,10 @@ export interface CreateAccountRequest {
   auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
   confirm_mixed_channel_risk?: boolean
+  /** Upstream relay account: the upstream instance to create the API key on */
+  upstream_id?: number
+  /** Upstream relay account: the group name to use when creating the key */
+  group_name?: string
 }
 
 export interface UpdateAccountRequest {

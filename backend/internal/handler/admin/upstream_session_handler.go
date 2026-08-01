@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -13,12 +12,13 @@ import (
 
 // UpstreamSessionHandler 管理 Sub2API / NewAPI 上游账号的 HTTP 处理器
 type UpstreamSessionHandler struct {
-	upstreamService *service.UpstreamSessionService
+	upstreamRepo service.UpstreamRepository
+	upstreamSvc  *service.UpstreamSessionService
 }
 
 // NewUpstreamSessionHandler 创建 handler 实例
-func NewUpstreamSessionHandler(svc *service.UpstreamSessionService) *UpstreamSessionHandler {
-	return &UpstreamSessionHandler{upstreamService: svc}
+func NewUpstreamSessionHandler(repo service.UpstreamRepository, svc *service.UpstreamSessionService) *UpstreamSessionHandler {
+	return &UpstreamSessionHandler{upstreamRepo: repo, upstreamSvc: svc}
 }
 
 // ---------------------------------------------------------------------------
@@ -36,59 +36,38 @@ type CreateUpstreamRequest struct {
 
 // UpstreamResponse 上游账号响应（脱敏，不返回明文密码/token）
 type UpstreamResponse struct {
-	ID           int64                     `json:"id"`
-	Platform     string                    `json:"platform"`
-	Name         string                    `json:"name"`
-	BaseURL      string                    `json:"base_url"`
-	Email        string                    `json:"email"`
-	Health       string                    `json:"health"`
-	HealthMsg    string                    `json:"health_msg,omitempty"`
-	Balance      float64                   `json:"balance"`
-	Groups       []service.UpstreamGroup   `json:"groups"`
-	LastSyncedAt string                    `json:"last_synced_at,omitempty"`
-	Status       string                    `json:"status"`
-	CreatedAt    string                    `json:"created_at"`
-	UpdatedAt    string                    `json:"updated_at"`
+	ID           int64                   `json:"id"`
+	Platform     string                  `json:"platform"`
+	Name         string                  `json:"name"`
+	BaseURL      string                  `json:"base_url"`
+	Email        string                  `json:"email"`
+	Health       string                  `json:"health"`
+	HealthMsg    string                  `json:"health_msg,omitempty"`
+	Balance      float64                 `json:"balance"`
+	Groups       []service.UpstreamGroup `json:"groups"`
+	LastSyncedAt string                  `json:"last_synced_at,omitempty"`
+	CreatedAt    string                  `json:"created_at"`
+	UpdatedAt    string                  `json:"updated_at"`
 }
 
-func upstreamToResponse(acc *service.Account) *UpstreamResponse {
+func upstreamToResponse(u *service.Upstream) *UpstreamResponse {
 	r := &UpstreamResponse{
-		ID:       acc.ID,
-		Platform: acc.Platform,
-		Name:     acc.Name,
-		Status:   acc.Status,
-		CreatedAt: acc.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
-		UpdatedAt: acc.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		ID:        u.ID,
+		Platform:  u.Platform,
+		Name:      u.Name,
+		BaseURL:   u.BaseURL,
+		Email:     u.Email,
+		Health:    u.Health,
+		Balance:   u.Balance,
+		Groups:    u.Groups,
+		CreatedAt: u.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+		UpdatedAt: u.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 	}
-	// 从 Credentials 提取非敏感字段
-	if acc.Credentials != nil {
-		if v, ok := acc.Credentials["base_url"].(string); ok {
-			r.BaseURL = v
-		}
-		if v, ok := acc.Credentials["email"].(string); ok {
-			r.Email = v
-		}
+	if u.HealthMsg != nil {
+		r.HealthMsg = *u.HealthMsg
 	}
-	// 从 Extra 提取 session 数据
-	if acc.Extra != nil {
-		if v, ok := acc.Extra["health"].(string); ok {
-			r.Health = v
-		}
-		if v, ok := acc.Extra["health_msg"].(string); ok {
-			r.HealthMsg = v
-		}
-		if v, ok := acc.Extra["balance"].(float64); ok {
-			r.Balance = v
-		}
-		if v, ok := acc.Extra["last_synced_at"].(string); ok {
-			r.LastSyncedAt = v
-		}
-		// 解析 groups
-		if raw, ok := acc.Extra["groups"]; ok && raw != nil {
-			if groups, err := parseGroups(raw); err == nil {
-				r.Groups = groups
-			}
-		}
+	if u.LastSyncedAt != nil {
+		r.LastSyncedAt = u.LastSyncedAt.UTC().Format("2006-01-02T15:04:05Z")
 	}
 	if r.Health == "" {
 		r.Health = "pending"
@@ -99,37 +78,6 @@ func upstreamToResponse(acc *service.Account) *UpstreamResponse {
 	return r
 }
 
-// parseGroups 将 any（来自 json map）转换为 []UpstreamGroup
-func parseGroups(raw any) ([]service.UpstreamGroup, error) {
-	// raw 是 []interface{} 类型（来自 json.Unmarshal 到 map[string]any）
-	items, ok := raw.([]interface{})
-	if !ok {
-		return nil, nil
-	}
-	groups := make([]service.UpstreamGroup, 0, len(items))
-	for _, item := range items {
-		m, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		g := service.UpstreamGroup{}
-		if v, ok := m["name"].(string); ok {
-			g.Name = v
-		}
-		if v, ok := m["platform"].(string); ok {
-			g.Platform = v
-		}
-		if v, ok := m["rate_multiplier"].(float64); ok {
-			g.RateMultiplier = v
-		}
-		if v, ok := m["description"].(string); ok {
-			g.Description = v
-		}
-		groups = append(groups, g)
-	}
-	return groups, nil
-}
-
 // ---------------------------------------------------------------------------
 // 路由处理方法
 // ---------------------------------------------------------------------------
@@ -138,19 +86,19 @@ func parseGroups(raw any) ([]service.UpstreamGroup, error) {
 // GET /api/v1/admin/upstreams
 func (h *UpstreamSessionHandler) List(c *gin.Context) {
 	ctx := c.Request.Context()
-	accounts, err := h.upstreamService.ListUpstreamAccounts(ctx)
+	upstreams, err := h.upstreamRepo.List(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	out := make([]*UpstreamResponse, 0, len(accounts))
-	for i := range accounts {
-		out = append(out, upstreamToResponse(&accounts[i]))
+	out := make([]*UpstreamResponse, 0, len(upstreams))
+	for i := range upstreams {
+		out = append(out, upstreamToResponse(&upstreams[i]))
 	}
 	response.Success(c, out)
 }
 
-// Create 新增上游账号
+// Create 新增上游账号并立即触发一次同步
 // POST /api/v1/admin/upstreams
 func (h *UpstreamSessionHandler) Create(c *gin.Context) {
 	var req CreateUpstreamRequest
@@ -159,16 +107,26 @@ func (h *UpstreamSessionHandler) Create(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	account, err := h.upstreamService.CreateUpstreamAccount(ctx,
-		req.Platform, req.Name, req.BaseURL, req.Email, req.Password)
-	if err != nil {
+	u := &service.Upstream{
+		Platform: req.Platform,
+		Name:     req.Name,
+		BaseURL:  req.BaseURL,
+		Email:    req.Email,
+		Password: req.Password,
+		Health:   "pending",
+	}
+	if err := h.upstreamRepo.Create(ctx, u); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
+	// 创建后立即异步同步一次（防止登录态延迟）
+	go func() {
+		_ = h.upstreamSvc.SyncUpstream(c.Request.Context(), u.ID)
+	}()
 	c.JSON(http.StatusCreated, gin.H{
 		"code":    0,
 		"message": "success",
-		"data":    upstreamToResponse(account),
+		"data":    upstreamToResponse(u),
 	})
 }
 
@@ -181,24 +139,24 @@ func (h *UpstreamSessionHandler) Get(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	account, err := h.upstreamService.GetUpstreamAccount(ctx, id)
+	u, err := h.upstreamRepo.GetByID(ctx, id)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, upstreamToResponse(account))
+	response.Success(c, upstreamToResponse(u))
 }
 
-// Update 更新上游账号配置
-// PUT /api/v1/admin/upstreams/:id
+// UpdateUpstreamRequest 更新上游账号配置请求体
 type UpdateUpstreamRequest struct {
 	Name     string `json:"name"`
 	BaseURL  string `json:"base_url"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Status   string `json:"status" binding:"omitempty,oneof=active inactive"`
 }
 
+// Update 更新上游账号配置
+// PUT /api/v1/admin/upstreams/:id
 func (h *UpstreamSessionHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -211,12 +169,28 @@ func (h *UpstreamSessionHandler) Update(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	account, err := h.upstreamService.UpdateUpstreamAccount(ctx, id, req.Name, req.BaseURL, req.Email, req.Password, req.Status)
+	u, err := h.upstreamRepo.GetByID(ctx, id)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, upstreamToResponse(account))
+	if req.Name != "" {
+		u.Name = req.Name
+	}
+	if req.BaseURL != "" {
+		u.BaseURL = req.BaseURL
+	}
+	if req.Email != "" {
+		u.Email = req.Email
+	}
+	if req.Password != "" {
+		u.Password = req.Password
+	}
+	if err := h.upstreamRepo.Update(ctx, u); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, upstreamToResponse(u))
 }
 
 // Delete 删除上游账号
@@ -228,7 +202,7 @@ func (h *UpstreamSessionHandler) Delete(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	if err := h.upstreamService.DeleteUpstreamAccount(ctx, id); err != nil {
+	if err := h.upstreamRepo.Delete(ctx, id); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
@@ -245,21 +219,16 @@ func (h *UpstreamSessionHandler) Sync(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	// 标记为 syncing
-	_ = h.upstreamService.MarkSyncing(ctx, id)
+	_ = h.upstreamRepo.SetHealth(ctx, id, "syncing", nil, nil)
 
-	if err := h.upstreamService.SyncUpstream(ctx, id); err != nil {
+	if err := h.upstreamSvc.SyncUpstream(ctx, id); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	account, err := h.upstreamService.GetUpstreamAccount(ctx, id)
+	u, err := h.upstreamRepo.GetByID(ctx, id)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, upstreamToResponse(account))
-}
-
-// validateUpstreamPlatform 检查 account.Platform 是否为上游类型
-func validateUpstreamPlatform(platform string) bool {
-	return platform == domain.PlatformSub2api || platform == domain.PlatformNewapi
+	response.Success(c, upstreamToResponse(u))
 }

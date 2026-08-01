@@ -283,6 +283,32 @@
             </div>
           </button>
 
+          <button
+            type="button"
+            @click="accountCategory = 'upstream'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'upstream'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 hover:border-indigo-300 dark:border-dark-600 dark:hover:border-indigo-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'upstream'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="arrow-up-right" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.upstreamDesc') }}</span>
+            </div>
+          </button>
+
         </div>
 
         <div
@@ -349,6 +375,32 @@
             </div>
           </button>
 
+          <button
+            type="button"
+            @click="accountCategory = 'upstream'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'upstream'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 hover:border-indigo-300 dark:border-dark-600 dark:hover:border-indigo-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'upstream'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="arrow-up-right" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.upstreamDesc') }}</span>
+            </div>
+          </button>
+
         </div>
       </div>
 
@@ -406,6 +458,32 @@
             <div>
               <span class="block text-sm font-medium text-gray-900 dark:text-white">API Key</span>
               <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.responsesApi') }}</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            @click="accountCategory = 'upstream'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'upstream'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 hover:border-indigo-300 dark:border-dark-600 dark:hover:border-indigo-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'upstream'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="arrow-up-right" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.upstreamDesc') }}</span>
             </div>
           </button>
         </div>
@@ -526,6 +604,32 @@
               <span class="text-xs text-gray-500 dark:text-gray-400">
                 Service Account
               </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            @click="accountCategory = 'upstream'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'upstream'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 hover:border-indigo-300 dark:border-dark-600 dark:hover:border-indigo-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'upstream'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="arrow-up-right" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.upstreamDesc') }}</span>
             </div>
           </button>
         </div>
@@ -849,6 +953,32 @@
               <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.antigravityApikey') }}</span>
             </div>
           </button>
+
+          <button
+            type="button"
+            @click="antigravityAccountType = 'oauth'; accountCategory = 'upstream'"
+            :class="[
+              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+              accountCategory === 'upstream'
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 hover:border-indigo-300 dark:border-dark-600 dark:hover:border-indigo-700'
+            ]"
+          >
+            <div
+              :class="[
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                accountCategory === 'upstream'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+              ]"
+            >
+              <Icon name="arrow-up-right" size="sm" />
+            </div>
+            <div>
+              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.types.upstream') }}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.types.upstreamDesc') }}</span>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -864,14 +994,13 @@
         <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
-      <!-- Upstream config (only for Antigravity upstream type) -->
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
+      <!-- Upstream config (only for Antigravity direct upstream type: base URL + API key) -->
+      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream' && accountCategory !== 'upstream'" class="space-y-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
           <input
             v-model="upstreamBaseUrl"
             type="text"
-            required
             class="input"
             placeholder="https://cloudcode-pa.googleapis.com"
           />
@@ -882,11 +1011,47 @@
           <input
             v-model="upstreamApiKey"
             type="password"
-            required
             class="input font-mono"
             placeholder="sk-..."
           />
           <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
+        </div>
+      </div>
+
+      <!-- Upstream relay account config (all platforms) -->
+      <div v-if="accountCategory === 'upstream'" class="space-y-4">
+        <div>
+          <label class="input-label">{{ t('admin.accounts.upstream.upstreamId') }}</label>
+          <select v-model="upstreamId" class="input" @change="onUpstreamIdChange">
+            <option value="">{{ t('admin.accounts.upstream.upstreamIdPlaceholder') }}</option>
+            <option v-for="u in upstreamsList" :key="u.id" :value="u.id">
+              {{ u.name }} ({{ u.platform }})
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.upstream.upstreamIdHint') }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.accounts.upstream.groupName') }}</label>
+          <select v-model="upstreamGroupName" class="input" :disabled="!upstreamId">
+            <option value="">{{ t('admin.accounts.upstream.groupNamePlaceholder') }}</option>
+            <option v-for="g in selectedUpstreamGroups" :key="g.name" :value="g.name">
+              {{ g.name }}
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.upstream.groupNameHint') }}</p>
+        </div>
+        <div>
+          <label class="flex cursor-pointer items-center gap-2">
+            <input
+              v-model="upstreamAutoPriority"
+              type="checkbox"
+              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+            />
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {{ t('admin.accounts.upstream.autoPriority') }}
+            </span>
+          </label>
+          <p class="input-hint mt-1">{{ t('admin.accounts.upstream.autoPriorityHint') }}</p>
         </div>
       </div>
 
@@ -3510,6 +3675,8 @@ import {
 } from '@/composables/useModelWhitelist'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
+import upstreamAPI from '@/api/admin/upstream'
+import type { Upstream as UpstreamInstance } from '@/api/admin/upstream'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import {
   useAccountOAuth,
@@ -3682,7 +3849,7 @@ interface TempUnschedRuleForm {
 // State
 const step = ref(1)
 const submitting = ref(false)
-const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account'>('oauth-based') // UI selection for account category
+const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_account' | 'upstream'>('oauth-based') // UI selection for account category
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
@@ -3816,6 +3983,22 @@ const antigravityAccountType = ref<'oauth' | 'upstream'>('oauth') // For antigra
 const antigravityProjectId = ref('')
 const upstreamBaseUrl = ref('') // For upstream type: base URL
 const upstreamApiKey = ref('') // For upstream type: API key
+const upstreamId = ref('') // For upstream type: upstream instance ID
+const upstreamGroupName = ref('') // For upstream type: group name
+const upstreamAutoPriority = ref(false) // For upstream type: auto priority
+const upstreamsList = ref<UpstreamInstance[]>([]) // For upstream type: available upstream instances
+const selectedUpstreamGroups = computed(() => {
+  if (!upstreamId.value) return []
+  const upstream = upstreamsList.value.find(u => u.id === upstreamId.value)
+  return upstream?.groups ?? []
+})
+function onUpstreamIdChange() {
+  upstreamGroupName.value = ''
+  const upstream = upstreamsList.value.find(u => u.id === upstreamId.value)
+  if (upstream?.base_url) {
+    upstreamBaseUrl.value = upstream.base_url
+  }
+}
 const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
 const antigravityWhitelistModels = ref<string[]>([])
 const antigravityModelMappings = ref<ModelMapping[]>([])
@@ -4147,6 +4330,11 @@ watch(
 watch(
   [accountCategory, addMethod, antigravityAccountType, () => form.platform],
   ([category, method, agType]) => {
+    // Upstream relay 优先：任何平台下选了 upstream 类型，form.type = 'upstream'
+    if (category === 'upstream') {
+      form.type = 'upstream' as AccountType
+      return
+    }
     // Antigravity upstream 类型（实际创建为 apikey）
     if (form.platform === 'antigravity' && agType === 'upstream') {
       form.type = 'apikey'
@@ -4166,6 +4354,16 @@ watch(
     }
   },
   { immediate: true }
+)
+
+// Load upstreams list when upstream type is selected (antigravity or any platform)
+watch(
+  [antigravityAccountType, accountCategory],
+  ([agType, category]) => {
+    if ((agType === 'upstream' || category === 'upstream') && upstreamsList.value.length === 0) {
+      upstreamAPI.list().then(list => { upstreamsList.value = list }).catch(() => {})
+    }
+  }
 )
 
 // Reset platform-specific settings when platform changes
@@ -4692,6 +4890,9 @@ const resetForm = () => {
   antigravityProjectId.value = ''
   upstreamBaseUrl.value = ''
   upstreamApiKey.value = ''
+  upstreamId.value = ''
+  upstreamGroupName.value = ''
+  upstreamAutoPriority.value = false
   vertexServiceAccountJson.value = ''
   vertexProjectId.value = ''
   vertexClientEmail.value = ''
@@ -4979,6 +5180,40 @@ const handleSubmit = async () => {
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
     await createAccountAndFinish('anthropic', 'bedrock' as AccountType, credentials)
+    return
+  }
+
+  // For upstream relay type (any platform): create via doCreateAccount with top-level upstream_id/group_name
+  if (accountCategory.value === 'upstream') {
+    if (!form.name.trim()) {
+      appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
+      return
+    }
+    if (!upstreamId.value) {
+      appStore.showError(t('admin.accounts.upstream.pleaseSelectUpstream'))
+      return
+    }
+    let computedPriority = form.priority
+    if (upstreamAutoPriority.value && upstreamGroupName.value) {
+      const g = selectedUpstreamGroups.value.find(grp => grp.name === upstreamGroupName.value)
+      if (g) computedPriority = Math.max(1, Math.round(g.rate_multiplier * 10))
+    }
+    await doCreateAccount({
+      name: form.name,
+      notes: form.notes,
+      platform: form.platform,
+      type: 'upstream' as AccountType,
+      credentials: {},
+      group_ids: form.group_ids,
+      priority: computedPriority,
+      concurrency: form.concurrency,
+      load_factor: form.load_factor ?? undefined,
+      proxy_id: form.proxy_id,
+      expires_at: form.expires_at,
+      auto_pause_on_expired: autoPauseOnExpired.value,
+      upstream_id: Number(upstreamId.value),
+      group_name: upstreamGroupName.value || undefined,
+    })
     return
   }
 

@@ -7,29 +7,32 @@ import (
 	"time"
 )
 
-// UpstreamSyncWorker 每隔 interval 对所有 upstream_session 账号执行一次同步
-// 参照 AccountExpiryService 的 Start/Stop 模式
+// UpstreamSyncWorker 每隔 interval 对所有上游实例执行一次同步（刷新 cookie / token）。
+// 默认间隔 1 分钟，防止上游登录态失效。
 type UpstreamSyncWorker struct {
-	service  *UpstreamSessionService
-	interval time.Duration
-	stopCh   chan struct{}
-	stopOnce sync.Once
-	wg       sync.WaitGroup
+	upstreamRepo UpstreamRepository
+	service      *UpstreamSessionService
+	interval     time.Duration
+	stopCh       chan struct{}
+	stopOnce     sync.Once
+	wg           sync.WaitGroup
 }
 
-// NewUpstreamSyncWorker 创建同步 Worker（默认 5 分钟间隔）
-func NewUpstreamSyncWorker(service *UpstreamSessionService, interval time.Duration) *UpstreamSyncWorker {
+// NewUpstreamSyncWorker 创建同步 Worker。
+// interval <= 0 时默认为 1 分钟。
+func NewUpstreamSyncWorker(upstreamRepo UpstreamRepository, service *UpstreamSessionService, interval time.Duration) *UpstreamSyncWorker {
 	if interval <= 0 {
-		interval = 5 * time.Minute
+		interval = time.Minute
 	}
 	return &UpstreamSyncWorker{
-		service:  service,
-		interval: interval,
-		stopCh:   make(chan struct{}),
+		upstreamRepo: upstreamRepo,
+		service:      service,
+		interval:     interval,
+		stopCh:       make(chan struct{}),
 	}
 }
 
-// Start 启动后台同步循环（启动时立即执行一次）
+// Start 启动后台同步循环（启动时立即执行一次）。
 func (w *UpstreamSyncWorker) Start() {
 	if w == nil || w.service == nil {
 		return
@@ -52,7 +55,7 @@ func (w *UpstreamSyncWorker) Start() {
 	}()
 }
 
-// Stop 停止同步循环，等待当前轮次完成
+// Stop 停止同步循环，等待当前轮次完成。
 func (w *UpstreamSyncWorker) Stop() {
 	if w == nil {
 		return
@@ -67,32 +70,31 @@ func (w *UpstreamSyncWorker) runOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	accounts, err := w.service.ListUpstreamAccounts(ctx)
+	upstreams, err := w.upstreamRepo.List(ctx)
 	if err != nil {
-		slog.Error("[UpstreamSync] list accounts failed", "err", err)
+		slog.Error("[UpstreamSync] list upstreams failed", "err", err)
 		return
 	}
-	if len(accounts) == 0 {
+	if len(upstreams) == 0 {
 		return
 	}
 
-	slog.Info("[UpstreamSync] syncing upstream accounts", "count", len(accounts))
+	slog.Info("[UpstreamSync] syncing upstreams", "count", len(upstreams))
 
-	// 并发同步，每个账号独立超时
 	var wg sync.WaitGroup
-	for _, acc := range accounts {
+	for _, u := range upstreams {
 		wg.Add(1)
 		go func(id int64) {
 			defer wg.Done()
-			accCtx, accCancel := context.WithTimeout(ctx, 30*time.Second)
-			defer accCancel()
-			if err := w.service.SyncUpstream(accCtx, id); err != nil {
-				slog.Warn("[UpstreamSync] sync failed", "account_id", id, "err", err)
+			uCtx, uCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer uCancel()
+			if err := w.service.SyncUpstream(uCtx, id); err != nil {
+				slog.Warn("[UpstreamSync] sync failed", "upstream_id", id, "err", err)
 			} else {
-				slog.Debug("[UpstreamSync] sync ok", "account_id", id)
+				slog.Debug("[UpstreamSync] sync ok", "upstream_id", id)
 			}
-		}(acc.ID)
+		}(u.ID)
 	}
 	wg.Wait()
-	slog.Info("[UpstreamSync] sync round complete", "count", len(accounts))
+	slog.Info("[UpstreamSync] sync round complete", "count", len(upstreams))
 }

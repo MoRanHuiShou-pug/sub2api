@@ -350,6 +350,11 @@ type CreateAccountInput struct {
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
 	SkipMixedChannelCheck bool
+	// UpstreamID, when set together with Type == AccountTypeUpstream, identifies the upstream
+	// whose session will be used to create an API key. The created key is stored in Credentials.
+	UpstreamID *int64
+	// GroupName is the upstream group display name for key creation (newapi uses name; sub2api uses numeric ID).
+	GroupName string
 }
 
 // ShadowOptions is the input for CreateShadow.
@@ -635,6 +640,8 @@ type adminServiceImpl struct {
 	affiliateService     adminRechargeAffiliateAccruer
 	compositeRouteRepo   CompositeModelRouteRepository
 	compositeResolver    *CompositeRouteResolver
+	upstreamRepo         UpstreamRepository
+	upstreamSvc          *UpstreamSessionService
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -668,6 +675,8 @@ func NewAdminService(
 	affiliateService *AffiliateService,
 	compositeRouteRepo CompositeModelRouteRepository,
 	compositeResolver *CompositeRouteResolver,
+	upstreamRepo UpstreamRepository,
+	upstreamSvc *UpstreamSessionService,
 ) AdminService {
 	return &adminServiceImpl{
 		userRepo:             userRepo,
@@ -693,5 +702,7 @@ func NewAdminService(
 		affiliateService:     affiliateService,
 		compositeRouteRepo:   compositeRouteRepo,
 		compositeResolver:    compositeResolver,
+		upstreamRepo:         upstreamRepo,
+		upstreamSvc:          upstreamSvc,
 	}
 }

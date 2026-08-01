@@ -799,9 +799,9 @@ func ProvideUserPlatformQuotaUsageFlusher(cfg *config.Config, cache BillingCache
 	return svc
 }
 
-// ProvideUpstreamSyncWorker 创建并启动 UpstreamSyncWorker（5 分钟同步间隔）
-func ProvideUpstreamSyncWorker(upstreamSvc *UpstreamSessionService) *UpstreamSyncWorker {
-	worker := NewUpstreamSyncWorker(upstreamSvc, 5*time.Minute)
+// ProvideUpstreamSyncWorker 创建并启动 UpstreamSyncWorker（1 分钟同步间隔，防止登录态失效）
+func ProvideUpstreamSyncWorker(upstreamRepo UpstreamRepository, upstreamSvc *UpstreamSessionService) *UpstreamSyncWorker {
+	worker := NewUpstreamSyncWorker(upstreamRepo, upstreamSvc, time.Minute)
 	worker.Start()
 	return worker
 }
